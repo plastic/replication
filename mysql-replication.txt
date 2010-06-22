@@ -1,0 +1,79 @@
+MySQL Replication
+
+1 - Configure o seu Master
+
+Edite o my.cnf [/etc/mysql/my.cnf] do seu banco de dados master:
+
+//comente essa linha
+#bind-address = 127.0.0.1
+
+// de um identificador único para seu banco
+server-id = 1
+
+// habilite o log binário
+log-bin = /var/log/mysql/mysql-bin.log
+
+// faça o banco de dados gerar o log binário apenas de um base de dados do banco
+binlog-do-db = minha_base
+
+salva o arquivo e reinicie o mysql [/etc/init.d/mysql restart]
+
+
+2 - Adicione as permissões para o slave
+
+Acesse o master e adicione as permissões necessárias para o banco de dados slave ter acesso ao master
+mysql> mysql -u root -p
+
+mysql> GRANT REPLICATION SLAVE ON *.* TO 'usuario_do_banco_slave'@'%' IDENTIFIED BY 'senha_do_usuario_slave';
+mysql> FLUSH PRIVILEGES;
+
+agora execute o seguinte comando ainda no shell
+mysql> SHOW MASTER STATUS;
+
+Voçê deve ter isso como resultado:
++---------------+----------+--------------+------------------+
+| File          | Position | Binlog_do_db | Binlog_ignore_db |
++---------------+----------+--------------+------------------+
+| mysql-bin.006 | 106      | minha_base   |                  |
++---------------+----------+--------------+------------------+
+1 row in set (0.00 sec)
+
+mysql> quit;
+
+Pronto o Master já está pronto para uso, agora vamos configurar o Slave.
+
+3 - Configure o seu Slave
+
+Edite o my.cnf [/etc/mysql/my.cnf] do seu banco de dados slave:
+
+server-id = 2
+master-host = ip_do_servidor_master
+master-user = usuario_do_banco_slave
+master-password = senha_do_usuario_slave
+master-connect-retry = 60
+
+salve o arquivo e reinicie o mysql [/etc/init.d/mysql restart]
+
+Abra o mysql no shell
+mysql> mysql -u root -p
+
+Execute o comando
+mysql> SLAVE STOP;
+mysql> CHANGE MASTER TO MASTER_HOST='ip_do_servidor_master', MASTER_USER='usuario_do_banco_slave', MASTER_PASSWORD='senha_do_usuario_slave', MASTER_LOG_FILE='mysql-bin.006', MASTER_LOG_POS=106;
+importante:
+MASTER_LOG_FILE = nome do arquivo binário
+MASTER_LOG_POS = posição do ponteiro do arquivo binário
+execute o [mysql> show master status;] no master para saber essas informações
+
+Agora faça:
+mysql> START SLAVE;
+mysql> quit;
+
+Reinicie novamente o Slave
+[/etc/init.d/mysql restart] 
+
+Feito!
+
+Agora teste a replicação inserindo algum registro no master
+
+Boa Sorte!
